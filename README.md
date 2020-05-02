@@ -1,3 +1,5 @@
+This API client is work in progress. DO NOT USE YET!
+
 TODO
-- giving the app access to the accounts of the user has to be done manually
+- add support for most API calls
 - refreshing an expired auth token
