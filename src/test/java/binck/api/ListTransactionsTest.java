@@ -13,8 +13,11 @@ public class ListTransactionsTest extends ApiTest {
         String token = aToken();
         List<Account> accounts = binckClient.listAccounts(token);
 
-        List<Transaction> transactions = binckClient.listTransactions(token, accounts.get(0).number);
+        Iterable<Transaction> allTransactions = binckClient.listAllTransactions(token, accounts.get(0).number);
 
-        assertThat(transactions).isNotEmpty();
+        assertThat(allTransactions).hasSize(107);
+        Transaction mostRecentTransaction = allTransactions.iterator().next();
+        assertThat(mostRecentTransaction.number).isEqualTo(107);
+        assertThat(mostRecentTransaction.transactionDate).isNotNull();
     }
 }

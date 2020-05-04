@@ -1,6 +1,10 @@
 package binck.api;
 
+import binck.api.collections.IteratorIterable;
+import binck.api.collections.Page;
+import binck.api.collections.PageIterator;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 import okhttp3.FormBody;
@@ -11,6 +15,7 @@ import okhttp3.Response;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.function.Function;
 
 import static binck.api.util.BinckGson.gson;
 
@@ -73,9 +78,15 @@ public class BinckClient {
         }
     }
 
-    public List<Transaction> listTransactions(String token, String accountNumber) {
+    public Iterable<Transaction> listAllTransactions(String token, String accountNumber) {
+        Function<String, Page<Transaction>> fetcher = range -> this.listTransactions(token, accountNumber, range);
+        PageIterator<Transaction> iterator = new PageIterator<>(fetcher);
+        return new IteratorIterable<>(iterator);
+    }
+
+    public Page<Transaction> listTransactions(String token, String accountNumber, String range) {
         Request request = new Request.Builder()
-                .url("https://" + environment.apiDomain + "/api/v1/accounts/" + accountNumber + "/transactions")
+                .url("https://" + environment.apiDomain + "/api/v1/accounts/" + accountNumber + "/transactions?" + range)
                 .header("Authorization", "Bearer " + token)
                 .get()
                 .build();
@@ -83,13 +94,17 @@ public class BinckClient {
             try (Response response = httpClient.newCall(request).execute()) {
                 assertOk(response);
                 String responseBody = response.body().string();
-                JsonArray transactionsJson = JsonParser.parseString(responseBody)
-                        .getAsJsonObject()
+                JsonObject responseJson = JsonParser.parseString(responseBody)
+                        .getAsJsonObject();
+                JsonArray transactionsJson = responseJson
                         .getAsJsonObject("transactionsCollection")
                         .getAsJsonArray("transactions");
+                JsonObject paging = responseJson.getAsJsonObject("paging");
+                String nextRange = paging.has("next") ? paging.getAsJsonPrimitive("next").getAsString() : null;
                 Type listType = new TypeToken<List<Transaction>>() {
                 }.getType();
-                return gson().fromJson(transactionsJson, listType);
+                List<Transaction> transactions = gson().fromJson(transactionsJson, listType);
+                return new Page<>(transactions, nextRange);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
